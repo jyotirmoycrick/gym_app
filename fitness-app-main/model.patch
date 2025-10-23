@@ -1,0 +1,108 @@
+diff --git a/frontend/app/manager/members.tsx b/frontend/app/manager/members.tsx
+index 6cd3de5..55e0dfd 100644
+--- a/frontend/app/manager/members.tsx
++++ b/frontend/app/manager/members.tsx
+@@ -50,7 +50,7 @@ export default function MembersScreen() {
+         assigned_trainer_id: null,
+         is_trainer: role === 'trainer',
+       });
+-      Alert.alert('Success', `${role === 'trainee' ? 'Member' : 'Trainer'} added successfully!\n\nCredentials:\nEmail: ${email}\nPassword: ${password}`);
++      Alert.alert('Success', `${role === 'trainee' ? 'Member' : 'Trainer'} added successfully!\n\nCredentials:\nEmail: ${email}\nPassword: ${password}\n\nShare these credentials with the ${role}.`);
+       setName(''); setEmail(''); setPhone(''); setPassword(''); setGoal(''); setDuration('1');
+       setShowForm(false);
+       loadMembers();
+@@ -61,6 +61,29 @@ export default function MembersScreen() {
+     }
+   };
+ 
++  const handleDeleteMember = (memberId: string, memberName: string) => {
++    Alert.alert(
++      'Delete Member',
++      `Are you sure you want to delete ${memberName}? This will also delete all their attendance, plans, and progress data.`,
++      [
++        { text: 'Cancel', style: 'cancel' },
++        {
++          text: 'Delete',
++          style: 'destructive',
++          onPress: async () => {
++            try {
++              await memberAPI.deleteMember(memberId);
++              Alert.alert('Success', 'Member deleted successfully');
++              loadMembers();
++            } catch (error: any) {
++              Alert.alert('Error', error.response?.data?.detail || 'Failed to delete member');
++            }
++          },
++        },
++      ]
++    );
++  };
++
+   if (showForm) {
+     return (
+       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+@@ -166,11 +189,16 @@ const styles = StyleSheet.create({
+   empty: { alignItems: 'center', marginTop: 100 },
+   emptyText: { fontSize: 18, fontWeight: '600', color: '#666', marginTop: 16 },
+   emptySubtext: { fontSize: 14, color: '#555', marginTop: 8 },
+-  memberCard: { flexDirection: 'row', backgroundColor: '#1a1a1a', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#333' },
++  memberCard: { backgroundColor: '#1a1a1a', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#333' },
++  memberMainInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+   memberInfo: { flex: 1 },
+   memberName: { fontSize: 16, fontWeight: '600', color: '#fff' },
+   memberEmail: { fontSize: 12, color: '#999', marginTop: 4 },
+   memberPlan: { fontSize: 12, color: '#FF6B35', marginTop: 4 },
++  memberActions: { flexDirection: 'row', gap: 8 },
++  actionBtn: { backgroundColor: '#FF6B35', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 4 },
++  actionBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
++  deleteBtn: { backgroundColor: '#dc3545' },
+   statusBadge: { backgroundColor: '#333', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, alignSelf: 'flex-start' },
+   statusActive: { backgroundColor: 'rgba(76, 175, 80, 0.2)' },
+   statusText: { fontSize: 12, color: '#4CAF50', fontWeight: '600' },
+diff --git a/model.patch b/model.patch
+index a8f712f..e69de29 100644
+--- a/model.patch
++++ b/model.patch
+@@ -1,42 +0,0 @@
+-diff --git a/frontend/app/manager/profile.tsx b/frontend/app/manager/profile.tsx
+-index d735622..5407bdf 100644
+---- a/frontend/app/manager/profile.tsx
+-+++ b/frontend/app/manager/profile.tsx
+-@@ -91,10 +91,18 @@ export default function ProfileScreen() {
+- 
+- const styles = StyleSheet.create({
+-   container: { flex: 1, backgroundColor: '#0a0a0a', padding: 24 },
+--  profileCard: { alignItems: 'center', padding: 24, backgroundColor: '#1a1a1a', borderRadius: 12, marginTop: 32 },
+-+  profileCard: { alignItems: 'center', padding: 24, backgroundColor: '#1a1a1a', borderRadius: 12, marginTop: 32, borderWidth: 1, borderColor: '#333' },
+-   name: { fontSize: 24, fontWeight: 'bold', color: '#fff', marginTop: 16 },
+-   email: { fontSize: 14, color: '#999', marginTop: 8 },
+-   role: { fontSize: 12, color: '#FF6B35', marginTop: 4 },
+--  logoutButton: { flexDirection: 'row', backgroundColor: '#FF6B35', borderRadius: 12, padding: 16, alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 32 },
+--  logoutText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+-+  changePasswordButton: { flexDirection: 'row', backgroundColor: '#4CAF50', borderRadius: 12, padding: 16, alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 24 },
+-+  logoutButton: { flexDirection: 'row', backgroundColor: '#FF6B35', borderRadius: 12, padding: 16, alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 16 },
+-+  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+-+  modal: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', padding: 24, zIndex: 1000 },
+-+  modalContent: { backgroundColor: '#1a1a1a', borderRadius: 12, padding: 24, borderWidth: 1, borderColor: '#333' },
+-+  closeBtn: { position: 'absolute', top: 16, right: 16, zIndex: 10 },
+-+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff', marginBottom: 24 },
+-+  input: { backgroundColor: '#0a0a0a', borderRadius: 12, padding: 16, color: '#fff', fontSize: 14, marginBottom: 16, borderWidth: 1, borderColor: '#333' },
+-+  submitButton: { backgroundColor: '#FF6B35', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 8 },
+-+  submitText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+- });
+-diff --git a/model.patch b/model.patch
+-index e35bf4e..e69de29 100644
+---- a/model.patch
+-+++ b/model.patch
+-@@ -1,11 +0,0 @@
+--diff --git a/backend/.env b/backend/.env
+--index 10f7a45..56bbb2f 100644
+----- a/backend/.env
+--+++ b/backend/.env
+--@@ -1,3 +1,3 @@
+---MONGO_URL="mongodb+srv://malojyotirmoy_db_user:7dXLBtq3nq9fXcis@cluster0.1wvcg2l.mongodb.net/"
+---DB_NAME="Gym_dataset"
+--+MONGO_URL="mongodb+srv://malojyotirmoy_db_user:7dXLBtq3nq9fXcis@cluster0.1wvcg2l.mongodb.net/fitdesert?retryWrites=true&w=majority"
+--+DB_NAME="fitdesert"
+-- EMERGENT_LLM_KEY=sk-emergent-9FcF9EbC003D7819a5
+--\ No newline at end of file

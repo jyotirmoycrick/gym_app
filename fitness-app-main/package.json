@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "expo-barcode-scanner": "^13.0.1",
+    "expo-linear-gradient": "^15.0.7"
+  }
+}
