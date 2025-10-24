@@ -18,42 +18,48 @@ async def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 async def get_current_user(request: Request, db: AsyncIOMotorDatabase) -> Optional[User]:
-    """Get the current authenticated user from session token"""
-    # Try to get session token from cookie first
-    session_token = request.cookies.get('session_token')
-    
-    # Fallback to Authorization header
+    """Get the current authenticated user from session token (header or cookie)."""
+    session_token = None
+
+    # 1️⃣ Try cookie first
+    if request.cookies.get('session_token'):
+        session_token = request.cookies.get('session_token')
+
+    # 2️⃣ Then Authorization header
     if not session_token:
         auth_header = request.headers.get('Authorization', '')
-        if auth_header.startswith('Bearer '):
-            session_token = auth_header.replace('Bearer ', '')
-    
+        if auth_header.lower().startswith('bearer '):  # <-- handles lowercase too
+            session_token = auth_header.split(' ', 1)[1].strip()
+
+    # 3️⃣ If still nothing, reject
     if not session_token:
+        print("🚫 No session token found in headers or cookies")
         raise HTTPException(status_code=401, detail="Not authenticated")
-    
-    # Find session in database
+
+    # 4️⃣ Validate session
     session = await db.user_sessions.find_one({"session_token": session_token})
-    
     if not session:
+        print(f"🚫 Invalid session: {session_token}")
         raise HTTPException(status_code=401, detail="Invalid session")
-    
-    # Check if session is expired
-    expires_at = session['expires_at']
-    if expires_at.tzinfo is None:
+
+    # 5️⃣ Check expiry
+    expires_at = session.get('expires_at')
+    if expires_at and expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=timezone.utc)
-    
-    if expires_at < datetime.now(timezone.utc):
+
+    if expires_at and expires_at < datetime.now(timezone.utc):
         await db.user_sessions.delete_one({"session_token": session_token})
+        print("⚠️ Session expired and deleted")
         raise HTTPException(status_code=401, detail="Session expired")
-    
-    # Get user
-    user_doc = await db.users.find_one({"_id": session['user_id']})
-    
+
+    # 6️⃣ Get user info
+    user_doc = await db.users.find_one({"_id": session["user_id"]})
     if not user_doc:
+        print("🚫 User not found for session")
         raise HTTPException(status_code=404, detail="User not found")
-    
-    # Map _id to id for Pydantic
-    user_doc['id'] = user_doc.pop('_id')
+
+    user_doc["id"] = user_doc.pop("_id")
+    print(f"✅ Authenticated user: {user_doc['name']} ({user_doc['role']})")
     return User(**user_doc)
 
 async def get_current_gym_manager(request: Request, db: AsyncIOMotorDatabase) -> User:

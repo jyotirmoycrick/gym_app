@@ -14,6 +14,9 @@ import base64
 import razorpay
 import requests
 from ai_utils import GPTChat
+from datetime import timedelta
+
+IST_OFFSET = timedelta(hours=5, minutes=30)
 
 # Import models
 from models import *
@@ -769,34 +772,39 @@ async def delete_member(request: Request, member_id: str):
 # ==================== ATTENDANCE ROUTES ====================
 
 @api_router.post("/attendance/scan")
-async def mark_attendance(request: Request, payload: dict):
+async def mark_attendance(request: Request):
     """
     Handles trainee attendance via QR scan.
-    Extracts gym_id automatically from QR data (e.g., "fitdesert://attendance/gym_12345").
+    Extracts gym_id automatically from QR data (e.g., "fitdesert://gym/gym_12345/attendance").
     Detects check-in or check-out automatically.
     """
     user = await get_current_user(request, db)
-    qr_code = payload.get("qr_code")
+
+    try:
+        body = await request.json()
+        qr_code = body.get("qr_code")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid request body format")
 
     if not qr_code:
         raise HTTPException(status_code=400, detail="QR code missing")
 
-    # Extract gym_id from QR string
-    try:
-        gym_id = qr_code.split("/")[-1]
-    except Exception:
+    # Extract gym_id (works for both "fitdesert://gym/gym_1234/attendance" and old formats)
+    import re
+    match = re.search(r"gym_(\d+(?:\.\d+)?)", qr_code)
+    gym_id = f"gym_{match.group(1)}" if match else None
+
+    if not gym_id:
         raise HTTPException(status_code=400, detail="Invalid QR code format")
 
-    # Verify gym exists
+    # ✅ Rest of your logic remains the same
     gym = await db.gyms.find_one({"_id": gym_id})
     if not gym:
         raise HTTPException(status_code=404, detail="Gym not found")
 
-    # Trainers should not mark attendance
     if user.role == UserRole.TRAINER:
         raise HTTPException(status_code=403, detail="Trainers cannot mark attendance")
 
-    # Find the member record
     member = await db.members.find_one({"user_id": user.id, "gym_id": gym_id})
     if not member:
         raise HTTPException(status_code=403, detail="You are not a member of this gym")
@@ -810,22 +818,20 @@ async def mark_attendance(request: Request, payload: dict):
         "gym_id": gym_id,
         "date": today
     })
-
+    
     if not existing:
-        # Check-in
         attendance_id = f"att_{datetime.utcnow().timestamp()}"
         await db.attendance.insert_one({
             "_id": attendance_id,
             "member_id": member["_id"],
             "gym_id": gym_id,
-            "check_in_time": datetime.now(timezone.utc),
+            "check_in_time": datetime.now(timezone.utc) + IST_OFFSET,
             "check_out_time": None,
             "date": today
         })
         return {"message": "Checked in successfully", "type": "check_in"}
 
     elif existing.get("check_out_time") is None:
-        # Check-out
         await db.attendance.update_one(
             {"_id": existing["_id"]},
             {"$set": {"check_out_time": datetime.now(timezone.utc)}}

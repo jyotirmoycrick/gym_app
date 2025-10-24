@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, RefreshControl, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, ActivityIndicator, StyleSheet,TouchableOpacity,
+  Alert, } from 'react-native';
 import { memberAPI, attendanceAPI, paymentAPI } from '../../src/services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/store/authStore';
@@ -103,21 +104,59 @@ export default function TraineeDashboard() {
 
 
 
-      <View style={styles.card}>
-  <Text style={styles.cardTitle}>Attendance</Text>
-  {attendance.length > 0 ? (
-    attendance.slice(0, 5).map((item, index) => (
-      <View key={index} style={styles.row}>
-        <Ionicons name="calendar" size={18} color="#FF6B35" />
+    {/* ===================== ATTENDANCE SECTION ===================== */}
+<View style={styles.attendanceContainer}>
+  <Text style={styles.attendanceTitle}>Attendance Overview</Text>
+
+  <View style={styles.attendanceCard}>
+    {/* Glow layer */}
+    <View style={styles.cardGlow} />
+
+    <View style={styles.metricRow}>
+      <View style={styles.metricItem}>
+        <Ionicons name="calendar" size={22} color="#FFD580" />
         <View>
-          <Text style={styles.text}>
-            {new Date(item.check_in_time).toLocaleDateString('en-IN', {
-              timeZone: 'Asia/Kolkata',
-            })}
+          <Text style={styles.metricLabel}>Total Days</Text>
+          <Text style={styles.metricValue}>{attendance.length}</Text>
+        </View>
+      </View>
+
+      <View style={styles.metricItem}>
+        <Ionicons name="bar-chart" size={22} color="#FF6B35" />
+        <View>
+          <Text style={styles.metricLabel}>This Month</Text>
+          <Text style={styles.metricValue}>
+            {attendance.filter((item) => {
+              const d = new Date(item.check_in_time);
+              const now = new Date();
+              return (
+                d.getMonth() === now.getMonth() &&
+                d.getFullYear() === now.getFullYear()
+              );
+            }).length}
           </Text>
-          <Text style={styles.textSmall}>
-            Check-in: {item.check_in_time
-              ? new Date(item.check_in_time).toLocaleTimeString('en-IN', {
+        </View>
+      </View>
+    </View>
+
+    <View style={styles.metricRow}>
+      <View style={styles.metricItem}>
+        <Ionicons name="flame" size={22} color="#FF9D00" />
+        <View>
+          <Text style={styles.metricLabel}>Current Streak</Text>
+          <Text style={styles.metricValue}>
+            {Math.min(attendance.length, 5)} Days
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.metricItem}>
+        <Ionicons name="time" size={22} color="#4CAF50" />
+        <View>
+          <Text style={styles.metricLabel}>Last Check-in</Text>
+          <Text style={styles.metricValue}>
+            {attendance[0]?.check_in_time
+              ? new Date(attendance[0].check_in_time).toLocaleTimeString('en-IN', {
                   hour: '2-digit',
                   minute: '2-digit',
                   hour12: true,
@@ -125,23 +164,24 @@ export default function TraineeDashboard() {
                 })
               : '--'}
           </Text>
-          <Text style={styles.textSmall}>
-            Check-out: {item.check_out_time
-              ? new Date(item.check_out_time).toLocaleTimeString('en-IN', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  hour12: true,
-                  timeZone: 'Asia/Kolkata',
-                })
-              : '— Not yet checked out —'}
-          </Text>
         </View>
       </View>
-    ))
-  ) : (
-    <Text style={styles.text}>No attendance records found</Text>
-  )}
+    </View>
+
+    <TouchableOpacity
+      style={styles.analyticsButton}
+      onPress={() =>
+        Alert.alert('Coming Soon 🚀', 'Analytics and progress insights coming soon!')
+      }
+    >
+      <Ionicons name="stats-chart" size={18} color="#fff" />
+      <Text style={styles.analyticsButtonText}>View Full Analytics</Text>
+    </TouchableOpacity>
+  </View>
 </View>
+
+
+
 
 
       {/* Payment Section */}
@@ -197,17 +237,7 @@ const styles = StyleSheet.create({
   shadowRadius: 12,
   shadowOffset: { width: 0, height: 6 },
   elevation: 8,
-},cardWrapper: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 22,
-    overflow: 'hidden',
-    shadowColor: '#FF6B35',
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 10,
-  },
+},
 
   premiumCard: {
     backgroundColor: '#141414', // dark metallic base
@@ -302,5 +332,118 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginLeft: 6,
     fontWeight: '600',
-  }
+  },
+
+  summaryContainer: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  marginVertical: 10,
+},
+summaryItem: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 6,
+},
+summaryText: {
+  color: '#fff',
+  fontSize: 13,
+},
+dividerLine: {
+  height: 1,
+  backgroundColor: '#333',
+  marginVertical: 12,
+},
+attendanceRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  marginBottom: 8,
+  gap: 10,
+},
+analyticsBtn: {
+  marginTop: 10,
+  backgroundColor: '#FF6B35',
+  paddingVertical: 10,
+  borderRadius: 8,
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 8,
+},
+analyticsBtnText: {
+  color: '#fff',
+  fontWeight: '600',
+  fontSize: 14,
+},
+attendanceContainer: {
+  marginHorizontal: 16,
+  marginBottom: 24,
+},
+attendanceTitle: {
+  color: '#fff',
+  fontSize: 18,
+  fontWeight: '700',
+  marginBottom: 12,
+  letterSpacing: 0.5,
+},
+
+attendanceCard: {
+  backgroundColor: '#1a1a1a',
+  borderRadius: 20,
+  padding: 18,
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.08)',
+  position: 'relative',
+  overflow: 'hidden',
+  shadowColor: '#FF6B35',
+  shadowOpacity: 0.25,
+  shadowRadius: 12,
+  elevation: 10,
+},
+cardGlow: {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: 'linear-gradient(135deg, rgba(255,107,53,0.1), rgba(255,211,150,0.1))',
+  opacity: 0.6,
+},
+
+metricRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  marginBottom: 16,
+},
+metricItem: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 10,
+  flex: 1,
+},
+metricLabel: {
+  color: '#aaa',
+  fontSize: 12,
+},
+metricValue: {
+  color: '#fff',
+  fontSize: 16,
+  fontWeight: '600',
+},
+analyticsButton: {
+  flexDirection: 'row',
+  justifyContent: 'center',
+  alignItems: 'center',
+  backgroundColor: '#FF6B35',
+  paddingVertical: 10,
+  borderRadius: 10,
+  marginTop: 10,
+  gap: 8,
+},
+analyticsButtonText: {
+  color: '#fff',
+  fontWeight: '700',
+  fontSize: 14,
+},
+
+
 });

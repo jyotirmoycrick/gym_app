@@ -17,6 +17,7 @@ import { useAuthStore } from '../src/store/authStore';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import Constants from 'expo-constants';
+import * as SecureStore from 'expo-secure-store';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -28,36 +29,44 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter email and password');
-      return;
+  
+
+const handleLogin = async () => {
+  if (!email || !password) {
+    Alert.alert('Error', 'Please enter email and password');
+    return;
+  }
+
+  setLoading(true);
+  try {
+    const response = await authAPI.login({ email, password });
+    const { session_token, user } = response.data;
+
+    // ✅ Save token in both store and SecureStore
+    await SecureStore.setItemAsync('session_token', session_token);
+    const saved = await SecureStore.getItemAsync('session_token');
+    console.log("✅ Token saved:", saved);
+
+    await setSessionToken(session_token);
+    setUser(user);
+
+    // Navigate based on role
+    if (user.role === 'head_admin') {
+      router.replace('/admin');
+    } else if (user.role === 'gym_manager') {
+      router.replace('/manager');
+    } else if (user.role === 'trainee') {
+      router.replace('/trainee');
+    } else if (user.role === 'trainer') {
+      router.replace('/trainer');
     }
+  } catch (error: any) {
+    Alert.alert('Login Failed', error.response?.data?.detail || 'Invalid credentials');
+  } finally {
+    setLoading(false);
+  }
+};
 
-    setLoading(true);
-    try {
-      const response = await authAPI.login({ email, password });
-      const { session_token, user } = response.data;
-
-      await setSessionToken(session_token);
-      setUser(user);
-
-      // Navigate based on role
-      if (user.role === 'head_admin') {
-        router.replace('/admin');
-      } else if (user.role === 'gym_manager') {
-        router.replace('/manager');
-      } else if (user.role === 'trainee') {
-        router.replace('/trainee');
-      } else if (user.role === 'trainer') {
-        router.replace('/trainer');
-      }
-    } catch (error: any) {
-      Alert.alert('Login Failed', error.response?.data?.detail || 'Invalid credentials');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleGoogleLogin = async () => {
     try {

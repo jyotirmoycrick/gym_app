@@ -79,11 +79,16 @@ export const memberAPI = {
 
 // Attendance API
 export const attendanceAPI = {
-  scan: (gymId: string) => api.post(`/attendance/scan?gym_id=${gymId}`),
+  scan: async (gymId: string) => {
+    const token = await SecureStore.getItemAsync('session_token');
+    return api.post(`/attendance/scan?gym_id=${gymId}`, {}, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  },
   getMyHistory: () => api.get('/attendance/my-history'),
   getGymStats: () => api.get('/attendance/gym-stats'),
-
 };
+
 
 // Payment API
 export const paymentAPI = {
