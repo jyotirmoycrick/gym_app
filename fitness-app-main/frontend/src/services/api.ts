@@ -66,14 +66,20 @@ export const gymAPI = {
 
 // Member API
 export const memberAPI = {
-  getAllMembers: () => api.get('/members'),
-  getAllTrainers: () => api.get('/trainers'),
-  addMember: (data) => api.post('/members', data),
+  getAllMembers: () => api.get("/members"),
+  getAllTrainers: () => api.get("/trainers"),
+  addMember: (data) => api.post("/members", data),
   deleteMember: (id) => api.delete(`/members/${id}`),
   assignTrainer: (memberId, trainerId) =>
     api.put(`/members/${memberId}/assign-trainer?trainer_id=${trainerId}`),
-  getMyProfile: () => api.get('/members/my-profile'), // ✅ Add this line
+  getMyProfile: () => api.get("/members/my-profile"),
+  getMemberDetails: (memberId) => api.get(`/members/${memberId}`), // ✅ Added
+  extendMembership: (memberId: string, extraDays: number) =>
+  api.put(`/members/${memberId}/extend?extra_days=${extraDays}`),
+
 };
+
+
 
 
 
@@ -86,7 +92,12 @@ export const attendanceAPI = {
     });
   },
   getMyHistory: () => api.get('/attendance/my-history'),
-  getGymStats: () => api.get('/attendance/gym-stats'),
+  getGymStats: (date?: string) =>
+    api.get('/attendance/gym-stats', {
+      params: date ? { date } : {},
+    }),
+  
+
 };
 
 
@@ -95,7 +106,9 @@ export const paymentAPI = {
   createOrder: (data: any) => api.post('/payments/create-order', data),
   verifyPayment: (data: any) => api.post('/payments/verify', data),
   getMyPayments: () => api.get('/payments/my-payments'),
+  getGymPayments: () => api.get('/payments/gym-payments'), // ✅ Add this line
 };
+
 
 // Workout Plan API
 export const workoutAPI = {

@@ -4,6 +4,9 @@ import { View, Text, ScrollView, RefreshControl, ActivityIndicator, StyleSheet,T
 import { memberAPI, attendanceAPI, paymentAPI } from '../../src/services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/store/authStore';
+import { useRouter } from 'expo-router';
+
+const router = useRouter();
 
 export default function TraineeDashboard() {
   const [profile, setProfile] = useState<any>(null);
@@ -168,15 +171,14 @@ export default function TraineeDashboard() {
       </View>
     </View>
 
-    <TouchableOpacity
-      style={styles.analyticsButton}
-      onPress={() =>
-        Alert.alert('Coming Soon 🚀', 'Analytics and progress insights coming soon!')
-      }
-    >
-      <Ionicons name="stats-chart" size={18} color="#fff" />
-      <Text style={styles.analyticsButtonText}>View Full Analytics</Text>
-    </TouchableOpacity>
+   <TouchableOpacity
+  style={styles.analyticsButton}
+  onPress={() => router.push('/trainee/TraineeAnalytics' as any)}
+>
+  <Ionicons name="stats-chart" size={18} color="#fff" />
+  <Text style={styles.analyticsButtonText}>View Full Analytics</Text>
+</TouchableOpacity>
+
   </View>
 </View>
 

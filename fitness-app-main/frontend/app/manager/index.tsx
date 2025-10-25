@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState ,useRef} from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,12 @@ import { useRouter } from 'expo-router';
 import { gymAPI } from '../../src/services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/store/authStore';
+import * as FileSystem from "expo-file-system/legacy";
+import * as MediaLibrary from "expo-media-library";
+import { captureRef } from "react-native-view-shot";
+
+const qrCardRef = useRef();
+
 
 export default function ManagerDashboard() {
   const router = useRouter();
@@ -125,25 +131,63 @@ export default function ManagerDashboard() {
 
       {/* QR Code Modal */}
       {showQR && gym.qr_code && (
-        <View style={styles.qrModal}>
-          <View style={styles.qrModalContent}>
-            <TouchableOpacity style={styles.closeButton} onPress={() => setShowQR(false)}>
-              <Ionicons name="close" size={24} color="#fff" />
-            </TouchableOpacity>
-            <Text style={styles.qrTitle}>Attendance QR Code</Text>
-            <Text style={styles.qrSubtitle}>Members scan this to mark attendance</Text>
-            <View style={styles.qrImageContainer}>
-              <Image 
-                source={{ uri: `data:image/png;base64,${gym.qr_code}` }}
-                style={styles.qrImage}
-                resizeMode="contain"
-              />
-            </View>
-            <Text style={styles.qrGymName}>{gym.name}</Text>
-            <Text style={styles.qrInstruction}>Show this QR code to your members</Text>
-          </View>
+  <View style={styles.qrModal}>
+    <View style={styles.qrModalContent}>
+      <TouchableOpacity style={styles.closeButton} onPress={() => setShowQR(false)}>
+        <Ionicons name="close" size={24} color="#fff" />
+      </TouchableOpacity>
+
+      {/* Gym Branded QR Card */}
+      <View
+        ref={qrCardRef}
+        style={styles.qrCardContainer}
+        collapsable={false}
+      >
+        <Text style={styles.qrCardTitle}>{gym.name}</Text>
+        <View style={styles.qrCardFrame}>
+          <Image
+            source={{ uri: `data:image/png;base64,${gym.qr_code}` }}
+            style={styles.qrImage}
+            resizeMode="contain"
+          />
         </View>
-      )}
+        <Text style={styles.qrCardSubtitle}>Scan to Check-In</Text>
+        <Text style={styles.qrCardDate}>
+          Generated on: {new Date().toLocaleDateString()}
+        </Text>
+      </View>
+
+      {/* Save Button */}
+      <TouchableOpacity
+        style={styles.saveButton}
+        onPress={async () => {
+          try {
+            const { status } = await MediaLibrary.requestPermissionsAsync();
+            if (status !== "granted") {
+              Alert.alert("Permission Denied", "Cannot save without permission.");
+              return;
+            }
+
+            const uri = await captureRef(qrCardRef, {
+              format: "jpg",
+              quality: 1,
+            });
+
+            await MediaLibrary.saveToLibraryAsync(uri);
+            Alert.alert("Saved ✅", "QR poster saved to your gallery!");
+          } catch (error) {
+            console.error("Save QR error:", error);
+            Alert.alert("Error", "Failed to save QR poster.");
+          }
+        }}
+      >
+        <Ionicons name="download-outline" size={20} color="#fff" />
+        <Text style={styles.saveButtonText}>Save Gym QR Poster</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+)}
+
 
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
@@ -377,10 +421,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 24,
   },
-  qrImage: {
-    width: 250,
-    height: 250,
-  },
   qrGymName: {
     fontSize: 18,
     fontWeight: '600',
@@ -392,4 +432,62 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
   },
+qrCardContainer: {
+  backgroundColor: "#fff",
+  borderRadius: 20,
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 20,
+  width: 280,
+  elevation: 5,
+  shadowColor: "#000",
+  shadowOpacity: 0.2,
+  shadowRadius: 10,
+  shadowOffset: { width: 0, height: 4 },
+},
+qrCardTitle: {
+  fontSize: 20,
+  fontWeight: "bold",
+  color: "#FF6B35",
+  marginBottom: 12,
+},
+qrCardFrame: {
+  backgroundColor: "#fff",
+  borderRadius: 16,
+  padding: 10,
+  borderWidth: 2,
+  borderColor: "#FF6B35",
+},
+qrImage: {
+  width: 200,
+  height: 200,
+},
+qrCardSubtitle: {
+  marginTop: 10,
+  fontSize: 14,
+  color: "#333",
+  fontWeight: "600",
+},
+qrCardDate: {
+  marginTop: 6,
+  fontSize: 12,
+  color: "#666",
+},
+saveButton: {
+  flexDirection: "row",
+  alignItems: "center",
+  backgroundColor: "#FF6B35",
+  borderRadius: 10,
+  paddingVertical: 12,
+  paddingHorizontal: 18,
+  marginTop: 20,
+},
+saveButtonText: {
+  color: "#fff",
+  fontSize: 15,
+  fontWeight: "600",
+  marginLeft: 8,
+},
+
+
 });

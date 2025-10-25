@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Header
+from fastapi import FastAPI, APIRouter, HTTPException, Request,Depends, Header
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -11,7 +11,6 @@ from datetime import datetime, timezone, timedelta
 import qrcode
 import io
 import base64
-import razorpay
 import requests
 from ai_utils import GPTChat
 from datetime import timedelta
@@ -674,21 +673,24 @@ async def get_my_profile(request: Request):
 
 @api_router.get("/members/{member_id}")
 async def get_member_details(request: Request, member_id: str):
-    """Get member details"""
+    """Allow gym managers and trainers"""
     user = await get_current_user(request, db)
-    
+
+    if user.role not in [UserRole.GYM_MANAGER, UserRole.TRAINER, UserRole.HEAD_ADMIN]:
+        raise HTTPException(status_code=403, detail="Access denied")
+
     member = await db.members.find_one({"_id": member_id})
     if not member:
         raise HTTPException(status_code=404, detail="Member not found")
-    
-    # Get user data
+
     user_data = await db.users.find_one({"_id": member['user_id']})
     if user_data:
         member['user_name'] = user_data['name']
         member['user_email'] = user_data['email']
-    
+
     member['id'] = member.pop('_id')
     return member
+
 
 @api_router.put("/members/{member_id}")
 async def update_member(request: Request, member_id: str, member_data: MemberCreate):
@@ -834,7 +836,7 @@ async def mark_attendance(request: Request):
     elif existing.get("check_out_time") is None:
         await db.attendance.update_one(
             {"_id": existing["_id"]},
-            {"$set": {"check_out_time": datetime.now(timezone.utc)}}
+            {"$set": {"check_out_time": datetime.now(timezone.utc)+ IST_OFFSET }}
         )
         return {"message": "Checked out successfully", "type": "check_out"}
 
@@ -860,35 +862,142 @@ async def get_my_attendance_history(request: Request):
     
     return attendance_records
 
+# @api_router.get("/gym-stats" ,response_model=None)
+# def gym_stats(date: Optional[str] = None, current_user=Depends(get_current_user)):
+#     if date:
+#         target_date = datetime.strptime(date, "%Y-%m-%d").date()
+#     else:
+#         target_date = datetime.now().date()
+
+#     today_records = db.query(Attendance).filter(
+#         Attendance.gym_id == current_user.gym_id,
+#         Attendance.check_in_time >= datetime.combine(target_date, datetime.min.time()),
+#         Attendance.check_in_time <= datetime.combine(target_date, datetime.max.time())
+#     ).all()
+
+#     week_start = target_date - timedelta(days=target_date.weekday())
+#     week_end = week_start + timedelta(days=6)
+#     week_count = db.query(Attendance).filter(
+#         Attendance.gym_id == current_user.gym_id,
+#         Attendance.check_in_time >= datetime.combine(week_start, datetime.min.time()),
+#         Attendance.check_in_time <= datetime.combine(week_end, datetime.max.time())
+#     ).count()
+
+#     return {
+#         "today_count": len(today_records),
+#         "today_records": [r.to_dict() for r in today_records],
+#         "week_count": week_count,
+#     }
+
+
 @api_router.get("/attendance/gym-stats")
-async def get_gym_attendance_stats(request: Request):
-    """Get attendance stats for gym manager"""
+async def get_gym_attendance_stats(request: Request, date: Optional[str] = None):
+    """
+    Get attendance stats for gym manager (supports ?date=YYYY-MM-DD)
+    """
     user = await get_current_gym_manager(request, db)
-    
+
     gym = await db.gyms.find_one({"owner_id": user.id})
     if not gym:
         raise HTTPException(status_code=404, detail="No gym found")
-    
-    # Get today's attendance
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    # 🗓 Handle date filtering correctly
+    try:
+        if date:
+            # Parse provided date to match DB format
+            target_date_obj = datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            start_of_day = target_date_obj.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_of_day = start_of_day + timedelta(days=1)
+        else:
+            # Default: today's date range
+            start_of_day = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+            end_of_day = start_of_day + timedelta(days=1)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+    # ✅ Filter attendance by datetime range (works even if stored as datetime)
     today_records = await db.attendance.find({
-        "gym_id": gym['_id'],
-        "date": today
+        "gym_id": gym["_id"],
+        "check_in_time": {"$gte": start_of_day, "$lt": end_of_day}
     }).to_list(1000)
-    
-    # Get this week's attendance
-    week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
+
+    # 📆 Weekly stats
+    week_ago = datetime.now(timezone.utc) - timedelta(days=7)
     week_records = await db.attendance.find({
-        "gym_id": gym['_id'],
-        "date": {"$gte": week_ago}
+        "gym_id": gym["_id"],
+        "check_in_time": {"$gte": week_ago}
     }).to_list(1000)
-    
+
+    print(f"📅 Final filter range: {start_of_day} → {end_of_day}")
+    print(f"✅ Found {len(today_records)} records")
+
     return {
+        "selected_date": date or start_of_day.strftime("%Y-%m-%d"),
         "today_count": len(today_records),
         "week_count": len(week_records),
-        "today_records": today_records[:10]  # Latest 10
+        "today_records": today_records,
     }
+@api_router.put("/members/{member_id}/extend")
+async def extend_member_subscription(request: Request, member_id: str, extra_days: int = 30):
+    """Extend a member's subscription manually"""
+    user = await get_current_gym_manager(request, db)
 
+    gym = await db.gyms.find_one({"owner_id": user.id})
+    if not gym:
+        raise HTTPException(status_code=404, detail="No gym found")
+
+    member = await db.members.find_one({"_id": member_id, "gym_id": gym["_id"]})
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    new_expiry = (
+        member.get("membership_expiry", datetime.now(timezone.utc)) + timedelta(days=extra_days)
+    )
+
+    await db.members.update_one(
+        {"_id": member_id},
+        {"$set": {"membership_expiry": new_expiry}}
+    )
+
+    return {"message": "Membership extended", "new_expiry": new_expiry}
+
+@api_router.get("/payments/gym/all")
+async def get_gym_payments(request: Request):
+    """Get all payments for gym manager"""
+    user = await get_current_gym_manager(request, db)
+
+    gym = await db.gyms.find_one({"owner_id": user.id})
+    if not gym:
+        raise HTTPException(status_code=404, detail="No gym found")
+
+    payments = await db.payments.find({"gym_id": gym["_id"]}).sort("created_at", -1).to_list(100)
+    for p in payments:
+        p["id"] = p.pop("_id")
+    return payments
+
+@api_router.get("/payments/gym-payments")
+async def get_gym_payments(request: Request):
+    """Get all successful payments for the gym manager"""
+    user = await get_current_gym_manager(request, db)
+
+    gym = await db.gyms.find_one({"owner_id": user.id})
+    if not gym:
+        raise HTTPException(status_code=404, detail="No gym found")
+
+    payments = await db.payments.find({
+        "gym_id": gym["_id"],
+        "status": PaymentStatus.SUCCESS.value
+    }).sort("created_at", -1).limit(100).to_list(100)
+
+    # attach member names
+    for p in payments:
+        member = await db.members.find_one({"_id": p["member_id"]})
+        if member:
+            user_doc = await db.users.find_one({"_id": member["user_id"]})
+            p["member_name"] = user_doc["name"] if user_doc else "Unknown"
+        p["id"] = p.pop("_id")
+
+    return payments
 
 @api_router.post("/attendance/checkout")
 async def checkout_attendance(request: Request, gym_id: str):
@@ -939,7 +1048,7 @@ async def create_payment_order(request: Request, payment_data: PaymentCreate):
         "gym_id": member['gym_id'],
         "amount": payment_data.amount,
         "payment_type": payment_data.payment_type.value,
-        "status": PaymentStatus.PENDING.value,
+        "status": PaymentStatus.SUCCESS.value,
         "created_at": datetime.now(timezone.utc)
     }
     

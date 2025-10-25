@@ -17,6 +17,14 @@ export default function TraineeLayout() {
       <Tabs.Screen name="ai" options={{ title: 'AI Assistant', tabBarIcon: ({ color, size }) => <Ionicons name="sparkles" size={size} color={color} /> }} />
       <Tabs.Screen name="payment" options={{ title: 'Payment', tabBarIcon: ({ color, size }) => <Ionicons name="card" size={size} color={color} /> }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: ({ color, size }) => <Ionicons name="person" size={size} color={color} /> }} />
+      <Tabs.Screen
+  name="TraineeAnalytics"
+  options={{
+    href: null, // hides it from tab bar
+  }}
+/>
+
     </Tabs>
+    
   );
 }

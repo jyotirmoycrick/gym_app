@@ -84,7 +84,7 @@ export default function AttendanceScreen(): JSX.Element {
 
       console.log("📡 Sending request with token:", sessionToken);
 
-      const response = await fetch("http://192.168.29.223:8000/api/attendance/scan", {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/attendance/scan`, {
   method: "POST",
   headers: {
     "Content-Type": "application/json",

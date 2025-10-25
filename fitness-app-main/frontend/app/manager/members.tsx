@@ -10,9 +10,12 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from 'react-native';
-import { memberAPI } from '../../src/services/api';
+import { memberAPI,attendanceAPI} from '../../src/services/api';
 import { Ionicons } from '@expo/vector-icons';
+
+
 
 export default function MembersScreen() {
   const [showForm, setShowForm] = useState(false);
@@ -22,6 +25,13 @@ export default function MembersScreen() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [selectedTrainer, setSelectedTrainer] = useState<string | null>(null);
+  const [showMemberDetails, setShowMemberDetails] = useState(false);
+  const [selectedMemberDetails, setSelectedMemberDetails] = useState<any>(null);
+  const [recentAttendance, setRecentAttendance] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+
+
 
   // Form fields
   const [name, setName] = useState('');
@@ -135,6 +145,31 @@ export default function MembersScreen() {
       setLoading(false);
     }
   };
+
+  const handleViewMember = async (member: any) => {
+  try {
+    setLoading(true);
+    setSelectedMemberDetails(member);
+
+    // Fetch attendance
+    const res = await memberAPI.getMemberDetails(member.id || member._id);
+    const attendanceRes = await attendanceAPI.getGymStats();
+    const attendanceArray = attendanceRes.data?.today_records || []; // ✅ extract the array
+    const lastRecord = attendanceArray.find(
+      (r: any) => r.member_id === (member.id || member._id)
+    );
+
+
+    setRecentAttendance(lastRecord || null);
+    setShowMemberDetails(true);
+  } catch (error: any) {
+    console.error("Failed to load member details", error);
+    Alert.alert("Error", "Unable to load member details.");
+  } finally {
+    setLoading(false);
+  }
+  };
+
 
   const handleDeleteMember = (memberId: string, memberName: string) => {
     Alert.alert(
@@ -285,85 +320,115 @@ export default function MembersScreen() {
           <Ionicons name="add" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
+      {/* Search Bar */}
+<View style={styles.searchContainer}>
+  <Ionicons name="search" size={20} color="#999" style={{ marginRight: 8 }} />
+  <TextInput
+    style={styles.searchInput}
+    placeholder="Search members by name or email..."
+    placeholderTextColor="#777"
+    value={searchQuery}
+    onChangeText={setSearchQuery}
+  />
+  {searchQuery.length > 0 && (
+    <TouchableOpacity onPress={() => setSearchQuery('')}>
+      <Ionicons name="close-circle" size={20} color="#777" />
+    </TouchableOpacity>
+  )}
+</View>
 
-      <ScrollView contentContainerStyle={styles.list}>
-        {members.length === 0 ? (
-          <View style={styles.empty}>
-            <Ionicons name="people-outline" size={60} color="#666" />
-            <Text style={styles.emptyText}>No members yet</Text>
-          </View>
-        ) : (
-          members.map((member) => {
-  const memberId = member.id || member._id;
-  const isTrainer = member.role === 'trainer' || member.is_trainer === true;
 
-  return (
-    <View key={memberId} style={styles.memberCard}>
-      <View style={styles.memberMainInfo}>
-        <View style={styles.memberInfo}>
-          <Text style={styles.memberName}>
-            {member.user_name || member.name}
-          </Text>
-          <Text style={styles.memberEmail}>
-            {member.user_email || member.email}
-          </Text>
-          {isTrainer ? (
-            <Text style={styles.trainerTag}>Trainer</Text>
-          ) : (
-            <>
-              <Text style={styles.memberPlan}>
-                Plan: {member.membership_plan}
-              </Text>
-              {member.assigned_trainer_name && (
-                <Text style={styles.assignedTrainer}>
-                  Trainer: {member.assigned_trainer_name}
-                </Text>
-              )}
-            </>
-          )}
-        </View>
-        <View
-          style={[
-            styles.statusBadge,
-            member.status === 'active' && styles.statusActive,
-          ]}
-        >
-          <Text style={styles.statusText}>
-            {member.status || 'active'}
-          </Text>
-        </View>
-      </View>
+      <ScrollView
+  contentContainerStyle={styles.list}
+  refreshControl={
+    <RefreshControl
+      refreshing={refreshing}
+      onRefresh={async () => {
+        setRefreshing(true);
+        await loadMembers();
+        setRefreshing(false);
+      }}
+      tintColor="#FF6B35"
+    />
+  }
+>
+  {members
+    .filter((m) => {
+      const name = m.user_name || m.name || '';
+      const email = m.user_email || m.email || '';
+      return (
+        name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        email.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    })
+    .map((member) => {
+      const memberId = member.id || member._id || Math.random().toString();
+      const isTrainer = member.role === 'trainer' || member.is_trainer === true;
 
-      {/* Actions inside the same card */}
-      <View style={styles.memberActions}>
-        {!isTrainer && (
-          <TouchableOpacity
-            style={[styles.actionBtn, { marginRight: 8 }]}
-            onPress={() => {
-              setSelectedMember(member);
-              setShowAssignModal(true);
-            }}
-          >
-            <Ionicons name="person-add" size={16} color="#fff" />
-            <Text style={styles.actionBtnText}>Assign</Text>
-          </TouchableOpacity>
-        )}
-
+      return (
         <TouchableOpacity
-          style={[styles.actionBtn, styles.deleteBtn]}
-          onPress={() =>
-            handleDeleteMember(memberId, member.user_name || member.name)
-          }
+          key={memberId}
+          style={styles.memberCard}
+          onPress={() => handleViewMember(member)}
+          activeOpacity={0.8}
         >
-          <Ionicons name="trash" size={16} color="#fff" />
-          <Text style={styles.actionBtnText}>Delete</Text>
-        </TouchableOpacity>
-      </View>
-    </View> // ✅ this closes the memberCard
-  );
-})
+  <View style={styles.memberMainInfo}>
+    <View style={styles.memberInfo}>
+      <Text style={styles.memberName}>{member.user_name || member.name}</Text>
+      <Text style={styles.memberEmail}>{member.user_email || member.email}</Text>
 
-        )}
+      {isTrainer ? (
+        <Text style={styles.trainerTag}>Trainer</Text>
+      ) : (
+        <>
+          <Text style={styles.memberPlan}>Plan: {member.membership_plan}</Text>
+          {member.assigned_trainer_name && (
+            <Text style={styles.assignedTrainer}>
+              Trainer: {member.assigned_trainer_name}
+            </Text>
+          )}
+        </>
+      )}
+    </View>
+
+    <View
+      style={[
+        styles.statusBadge,
+        member.status === 'active' && styles.statusActive,
+      ]}
+    >
+      <Text style={styles.statusText}>{member.status || 'active'}</Text>
+    </View>
+  </View>
+
+  {/* Actions */}
+  <View style={styles.memberActions}>
+    {!isTrainer && (
+      <TouchableOpacity
+        style={[styles.actionBtn, { marginRight: 8 }]}
+        onPress={() => {
+          setSelectedMember(member);
+          setShowAssignModal(true);
+        }}
+      >
+        <Ionicons name="person-add" size={16} color="#fff" />
+        <Text style={styles.actionBtnText}>Assign</Text>
+      </TouchableOpacity>
+    )}
+
+    <TouchableOpacity
+      style={[styles.actionBtn, styles.deleteBtn]}
+      onPress={() => handleDeleteMember(memberId, member.user_name || member.name)}
+    >
+      <Ionicons name="trash" size={16} color="#fff" />
+      <Text style={styles.actionBtnText}>Delete</Text>
+    </TouchableOpacity>
+  </View>
+</TouchableOpacity>
+
+  );})
+
+        }
       </ScrollView>
 
       {/* Assign Modal */}
@@ -437,9 +502,89 @@ export default function MembersScreen() {
           </View>
         </View>
       )}
+
+      {showMemberDetails && selectedMemberDetails && (
+  <View style={styles.modalOverlay}>
+    <View style={styles.memberDetailModal}>
+      <TouchableOpacity
+        style={styles.closeModalBtn}
+        onPress={() => setShowMemberDetails(false)}
+      >
+        <Ionicons name="close" size={24} color="#fff" />
+      </TouchableOpacity>
+
+      <Text style={styles.modalTitle}>Member Details</Text>
+
+      <View style={styles.memberDetailSection}>
+        <Text style={styles.detailLabel}>Name</Text>
+        <Text style={styles.detailValue}>
+          {selectedMemberDetails.user_name || selectedMemberDetails.name}
+        </Text>
+
+        <Text style={styles.detailLabel}>Email</Text>
+        <Text style={styles.detailValue}>
+          {selectedMemberDetails.user_email || selectedMemberDetails.email}
+        </Text>
+
+        <Text style={styles.detailLabel}>Phone</Text>
+        <Text style={styles.detailValue}>
+          {selectedMemberDetails.phone || '—'}
+        </Text>
+
+        <Text style={styles.detailLabel}>Membership Plan</Text>
+        <Text style={styles.detailValue}>
+          {selectedMemberDetails.membership_plan || '—'}
+        </Text>
+
+        <Text style={styles.detailLabel}>Expiry Date</Text>
+        <Text style={styles.detailValue}>
+          {selectedMemberDetails.membership_expiry
+            ? new Date(selectedMemberDetails.membership_expiry).toLocaleDateString('en-IN', {
+                timeZone: 'Asia/Kolkata',
+              })
+            : '—'}
+        </Text>
+
+        <Text style={styles.detailLabel}>Assigned Trainer</Text>
+        <Text style={styles.detailValue}>
+          {selectedMemberDetails.assigned_trainer_name || 'Not Assigned'}
+        </Text>
+
+        <View style={styles.divider} />
+
+        <Text style={styles.detailLabel}>Last Check-in</Text>
+        <Text style={styles.detailValue}>
+          {recentAttendance?.check_in_time
+            ? new Date(recentAttendance.check_in_time).toLocaleString('en-IN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true,
+                timeZone: 'Asia/Kolkata',
+              })
+            : '—'}
+        </Text>
+
+        <Text style={styles.detailLabel}>Last Check-out</Text>
+        <Text style={styles.detailValue}>
+          {recentAttendance?.check_out_time
+            ? new Date(recentAttendance.check_out_time).toLocaleString('en-IN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true,
+                timeZone: 'Asia/Kolkata',
+              })
+            : '—'}
+        </Text>
+      </View>
+    </View>
+  </View>
+)}
+
     </View>
   );
 }
+
+
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0a0a0a' },
@@ -591,5 +736,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   assignButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  memberDetailModal: {
+  backgroundColor: '#1a1a1a',
+  borderRadius: 16,
+  padding: 24,
+  width: '90%',
+  maxWidth: 400,
+  borderWidth: 1,
+  borderColor: '#333',
+},
+memberDetailSection: {
+  marginTop: 20,
+},
+detailLabel: {
+  fontSize: 13,
+  color: '#999',
+  marginTop: 10,
+},
+detailValue: {
+  fontSize: 15,
+  color: '#fff',
+  fontWeight: '600',
+  marginTop: 2,
+},
+divider: {
+  borderBottomWidth: 1,
+  borderBottomColor: '#333',
+  marginVertical: 16,
+},
+searchContainer: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: '#1a1a1a',
+  borderRadius: 12,
+  paddingHorizontal: 12,
+  paddingVertical: 10,
+  marginHorizontal: 24,
+  marginBottom: 10,
+  borderWidth: 1,
+  borderColor: '#333',
+},
+searchInput: {
+  flex: 1,
+  color: '#fff',
+  fontSize: 14,
+},
+
 });
 
