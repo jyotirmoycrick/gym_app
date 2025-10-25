@@ -186,26 +186,76 @@ export default function TraineeDashboard() {
 
 
 
-      {/* Payment Section */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Payment History</Text>
-        {payments.length > 0 ? (
-          payments.map((pay, i) => (
-            <View key={i} style={styles.row}>
-              <Ionicons
-                name={pay.status === 'success' ? 'cash' : 'alert-circle'}
-                size={18}
-                color={pay.status === 'success' ? '#4CAF50' : '#FF6B35'}
-              />
-              <Text style={styles.text}>
-                ₹{pay.amount} — {pay.status?.toUpperCase()}
-              </Text>
-            </View>
-          ))
-        ) : (
-          <Text style={styles.text}>No payments yet</Text>
-        )}
+      {/* ===================== PAYMENT HISTORY SECTION ===================== */}
+<View style={styles.paymentContainer}>
+  <Text style={styles.paymentTitle}>Payment History</Text>
+
+  {payments.length > 0 ? (
+    payments.map((pay, i) => (
+      <View key={i} style={styles.paymentItem}>
+        {/* Icon */}
+        <View
+          style={[
+            styles.iconCircle,
+            {
+              backgroundColor:
+                pay.status === 'success'
+                  ? 'rgba(76,175,80,0.15)'
+                  : 'rgba(255,107,53,0.15)',
+            },
+          ]}
+        >
+          <Ionicons
+            name={pay.status === 'success' ? 'checkmark' : 'alert'}
+            size={16}
+            color={pay.status === 'success' ? '#4CAF50' : '#FF6B35'}
+          />
+        </View>
+
+        {/* Info */}
+        <View style={{ flex: 1 }}>
+          <Text style={styles.amountText}>₹{pay.amount}</Text>
+          <Text style={styles.dateText}>
+            {pay.date
+              ? new Date(pay.date).toLocaleDateString()
+              : 'No Date Available'}
+          </Text>
+        </View>
+
+        {/* Status Pill */}
+        <View
+          style={[
+            styles.statusBadge,
+            {
+              backgroundColor:
+                pay.status === 'success' ? 'rgba(76,175,80,0.1)' : 'rgba(255,107,53,0.1)',
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.statusBadgeText,
+              {
+                color:
+                  pay.status === 'success'
+                    ? '#4CAF50'
+                    : '#FF6B35',
+              },
+            ]}
+          >
+            {pay.status?.toUpperCase()}
+          </Text>
+        </View>
       </View>
+    ))
+  ) : (
+    <View style={styles.emptyPaymentBox}>
+      <Ionicons name="card-outline" size={26} color="#777" />
+      <Text style={styles.emptyPaymentText}>No payments yet</Text>
+    </View>
+  )}
+</View>
+
     </ScrollView>
   );
 }
@@ -233,12 +283,7 @@ const styles = StyleSheet.create({
   marginHorizontal: 16,
   marginBottom: 16,
   borderRadius: 20,
-  overflow: 'hidden',
-  shadowColor: '#FF6B35',
-  shadowOpacity: 0.3,
-  shadowRadius: 12,
-  shadowOffset: { width: 0, height: 6 },
-  elevation: 8,
+  overflow: 'hidden'
 },
 
   premiumCard: {
@@ -395,11 +440,7 @@ attendanceCard: {
   borderWidth: 1,
   borderColor: 'rgba(255,255,255,0.08)',
   position: 'relative',
-  overflow: 'hidden',
-  shadowColor: '#FF6B35',
-  shadowOpacity: 0.25,
-  shadowRadius: 12,
-  elevation: 10,
+  overflow: 'hidden'
 },
 cardGlow: {
   position: 'absolute',
@@ -445,6 +486,72 @@ analyticsButtonText: {
   color: '#fff',
   fontWeight: '700',
   fontSize: 14,
+},
+paymentContainer: {
+  backgroundColor: '#1a1a1a',
+  marginHorizontal: 16,
+  marginBottom: 20,
+  borderRadius: 16,
+  padding: 18,
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.08)',
+},
+paymentTitle: {
+  color: '#fff',
+  fontSize: 18,
+  fontWeight: '700',
+  marginBottom: 14,
+  letterSpacing: 0.4,
+},
+paymentItem: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: '#141414',
+  borderRadius: 12,
+  paddingVertical: 12,
+  paddingHorizontal: 10,
+  marginBottom: 10,
+  borderWidth: 1,
+  borderColor: '#222',
+},
+iconCircle: {
+  width: 34,
+  height: 34,
+  borderRadius: 17,
+  justifyContent: 'center',
+  alignItems: 'center',
+  marginRight: 12,
+},
+amountText: {
+  color: '#fff',
+  fontWeight: '700',
+  fontSize: 14,
+},
+dateText: {
+  color: '#aaa',
+  fontSize: 12,
+  marginTop: 2,
+},
+statusBadge: {
+  paddingHorizontal: 10,
+  paddingVertical: 5,
+  borderRadius: 8,
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.1)',
+},
+statusBadgeText: {
+  fontWeight: '700',
+  fontSize: 10,
+  letterSpacing: 0.5,
+},
+emptyPaymentBox: {
+  alignItems: 'center',
+  paddingVertical: 24,
+},
+emptyPaymentText: {
+  color: '#888',
+  fontSize: 13,
+  marginTop: 6,
 },
 
 
