@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+import uvicorn
 import os
 import logging
 from pathlib import Path
@@ -64,6 +65,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
 
 # ==================== AUTHENTICATION ROUTES ====================
 
@@ -1352,3 +1354,8 @@ app.add_middleware(
 async def shutdown_db_client():
     client.close()
 
+
+if __name__ == "__main__":
+    # Railway dynamically assigns a port, use that instead of hardcoding 8000
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("server:app", host="0.0.0.0", port=port)
