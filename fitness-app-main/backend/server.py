@@ -65,6 +65,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+@app.get("/")
+async def health_root():
+    return {
+        "message": "FitDesert API",
+        "version": "1.0.0",
+        "status": "running"
+    }
 
 # ==================== AUTHENTICATION ROUTES ====================
 
