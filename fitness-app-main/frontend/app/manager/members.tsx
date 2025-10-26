@@ -16,7 +16,7 @@ import { memberAPI,attendanceAPI} from '../../src/services/api';
 import { Ionicons } from '@expo/vector-icons';
 
 
-
+console.log("✅ Opened Manager [ScreenName]");
 export default function MembersScreen() {
   const [showForm, setShowForm] = useState(false);
   const [members, setMembers] = useState<any[]>([]);

@@ -13,7 +13,7 @@ export default function ProfileScreen() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-
+  console.log("✅ Opened Manager [ScreenName]");
   const handleLogout = async () => {
     await logout();
     router.replace('/');

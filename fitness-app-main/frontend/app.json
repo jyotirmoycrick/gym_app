@@ -10,7 +10,7 @@
       "backgroundColor": "#000000"
     },
     "icon": "./assets/images/android-chrome-512x512.png",
-    "scheme": "Fit Desert",
+    "scheme": "fitdesert",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
