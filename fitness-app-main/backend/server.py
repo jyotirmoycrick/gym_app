@@ -1355,7 +1355,13 @@ async def shutdown_db_client():
     client.close()
 
 
+@app.get("/")
+async def root_health():
+    return {"status": "running"}
+
+
 if __name__ == "__main__":
     # Railway dynamically assigns a port, use that instead of hardcoding 8000
+    import uvicorn, os
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("server:app", host="0.0.0.0", port=port)
